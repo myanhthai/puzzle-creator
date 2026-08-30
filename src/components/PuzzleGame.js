@@ -26,11 +26,32 @@ const PuzzleGame = ({ image, config, onReset }) => {
     const availableWidth = Math.min(window.innerWidth - 200, 1200); // Max width with padding
     const availableHeight = window.innerHeight - 300; // Account for header and padding
 
-    // Calculate puzzle area dimensions (leaving space for scattered pieces)
-    const puzzleAreaWidth = Math.min(availableWidth * 0.6, img.width);
-    const puzzleAreaHeight = Math.min(availableHeight * 0.8, img.height);
+    // Calculate image aspect ratio
+    const imageAspectRatio = img.width / img.height;
 
-    // Calculate piece dimensions based on puzzle area, not image size
+    // Calculate piece dimensions that maintain image aspect ratio
+    const sourcePieceWidth = img.width / config.cols;
+    const sourcePieceHeight = img.height / config.rows;
+    const sourcePieceAspectRatio = sourcePieceWidth / sourcePieceHeight;
+
+    // Determine maximum puzzle area while maintaining aspect ratio
+    const maxPuzzleWidth = availableWidth * 0.6;
+    const maxPuzzleHeight = availableHeight * 0.8;
+
+    // Calculate actual puzzle dimensions maintaining image aspect ratio
+    let puzzleAreaWidth, puzzleAreaHeight;
+
+    if (imageAspectRatio > (maxPuzzleWidth / maxPuzzleHeight)) {
+      // Image is wider - limit by width
+      puzzleAreaWidth = Math.min(maxPuzzleWidth, img.width);
+      puzzleAreaHeight = puzzleAreaWidth / imageAspectRatio;
+    } else {
+      // Image is taller - limit by height
+      puzzleAreaHeight = Math.min(maxPuzzleHeight, img.height);
+      puzzleAreaWidth = puzzleAreaHeight * imageAspectRatio;
+    }
+
+    // Calculate piece dimensions that maintain source aspect ratio
     const pieceWidth = puzzleAreaWidth / config.cols;
     const pieceHeight = puzzleAreaHeight / config.rows;
 
