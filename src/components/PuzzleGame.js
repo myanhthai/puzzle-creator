@@ -22,13 +22,31 @@ const PuzzleGame = ({ image, config, onReset }) => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
 
-    // Set canvas size
-    canvas.width = window.innerWidth - 100;
-    canvas.height = window.innerHeight - 200;
+    // Calculate available space for puzzle
+    const availableWidth = Math.min(window.innerWidth - 200, 1200); // Max width with padding
+    const availableHeight = window.innerHeight - 300; // Account for header and padding
 
-    // Calculate piece dimensions
-    const pieceWidth = Math.min(img.width / config.cols, 150);
-    const pieceHeight = Math.min(img.height / config.rows, 150);
+    // Calculate puzzle area dimensions (leaving space for scattered pieces)
+    const puzzleAreaWidth = Math.min(availableWidth * 0.6, img.width);
+    const puzzleAreaHeight = Math.min(availableHeight * 0.8, img.height);
+
+    // Calculate piece dimensions based on puzzle area, not image size
+    const pieceWidth = puzzleAreaWidth / config.cols;
+    const pieceHeight = puzzleAreaHeight / config.rows;
+
+    // Set canvas size to accommodate both puzzle area and scattered pieces
+    canvas.width = availableWidth;
+    canvas.height = Math.max(availableHeight, puzzleAreaHeight + 200);
+
+    // Center the puzzle area on the canvas
+    const totalPuzzleWidth = config.cols * pieceWidth;
+    const totalPuzzleHeight = config.rows * pieceHeight;
+    const puzzleStartX = (canvas.width - totalPuzzleWidth) / 2;
+    const puzzleStartY = (canvas.height - totalPuzzleHeight) / 2;
+
+    // Calculate scramble area (remaining canvas space around centered puzzle)
+    const scrambleAreaWidth = Math.max(canvas.width - totalPuzzleWidth - CANVAS_PADDING * 2, 200);
+    const scrambleStartX = CANVAS_PADDING;
 
     const newPieces = [];
     for (let row = 0; row < config.rows; row++) {
@@ -44,12 +62,12 @@ const PuzzleGame = ({ image, config, onReset }) => {
           sourceY: (img.height / config.rows) * row,
           sourceWidth: img.width / config.cols,
           sourceHeight: img.height / config.rows,
-          // Correct position (where piece should end up)
-          correctX: CANVAS_PADDING + col * pieceWidth,
-          correctY: CANVAS_PADDING + row * pieceHeight,
-          // Current position (randomized)
-          x: Math.random() * (canvas.width - pieceWidth - 200) + 100,
-          y: Math.random() * (canvas.height - pieceHeight - 200) + 100,
+          // Correct position (where piece should end up - centered)
+          correctX: puzzleStartX + col * pieceWidth,
+          correctY: puzzleStartY + row * pieceHeight,
+          // Current position (randomized around the edges of canvas)
+          x: Math.random() * (scrambleAreaWidth - pieceWidth) + scrambleStartX,
+          y: Math.random() * (canvas.height - pieceHeight - CANVAS_PADDING * 2) + CANVAS_PADDING,
           placed: false,
           connected: false
         };
@@ -84,15 +102,24 @@ const PuzzleGame = ({ image, config, onReset }) => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Draw background grid (optional - helps users see where pieces go)
-    ctx.strokeStyle = 'rgba(200, 200, 200, 0.5)';
-    ctx.lineWidth = 1;
-    for (let row = 0; row < config.rows; row++) {
-      for (let col = 0; col < config.cols; col++) {
-        const x = CANVAS_PADDING + col * pieces[0]?.width || 0;
-        const y = CANVAS_PADDING + row * pieces[0]?.height || 0;
-        const width = pieces[0]?.width || 0;
-        const height = pieces[0]?.height || 0;
-        ctx.strokeRect(x, y, width, height);
+    if (pieces.length > 0) {
+      ctx.strokeStyle = 'rgba(200, 200, 200, 0.5)';
+      ctx.lineWidth = 1;
+
+      // Calculate centered grid position
+      const totalPuzzleWidth = config.cols * pieces[0].width;
+      const totalPuzzleHeight = config.rows * pieces[0].height;
+      const gridStartX = (canvas.width - totalPuzzleWidth) / 2;
+      const gridStartY = (canvas.height - totalPuzzleHeight) / 2;
+
+      for (let row = 0; row < config.rows; row++) {
+        for (let col = 0; col < config.cols; col++) {
+          const x = gridStartX + col * pieces[0].width;
+          const y = gridStartY + row * pieces[0].height;
+          const width = pieces[0].width;
+          const height = pieces[0].height;
+          ctx.strokeRect(x, y, width, height);
+        }
       }
     }
 
@@ -321,15 +348,26 @@ const PuzzleGame = ({ image, config, onReset }) => {
     drawPuzzle();
   }, [drawPuzzle]);
 
-  // Handle window resize
+  // Handle window resize - only resize canvas, don't reset puzzle
   useEffect(() => {
     const handleResize = () => {
-      initializePuzzle();
+      if (!canvasRef.current || pieces.length === 0) return;
+
+      const canvas = canvasRef.current;
+      const availableWidth = Math.min(window.innerWidth - 200, 1200);
+      const availableHeight = window.innerHeight - 300;
+
+      // Only update canvas size, keep pieces in their current positions
+      canvas.width = availableWidth;
+      canvas.height = Math.max(availableHeight, canvas.height);
+
+      // Redraw with current piece positions
+      drawPuzzle();
     };
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [initializePuzzle]);
+  }, [pieces, drawPuzzle]);
 
   return (
     <div className="puzzle-game">
