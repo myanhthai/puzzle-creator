@@ -1,0 +1,338 @@
+import React, { useRef, useEffect, useState, useCallback } from 'react';
+import './PuzzleGame.css';
+
+const PuzzleGame = ({ image, config, onReset }) => {
+  const canvasRef = useRef(null);
+  const imageRef = useRef(null);
+  const [pieces, setPieces] = useState([]);
+  const [draggedPiece, setDraggedPiece] = useState(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [gameCompleted, setGameCompleted] = useState(false);
+  const [connectedPieces, setConnectedPieces] = useState(new Set());
+
+  const PIECE_SNAP_DISTANCE = 30;
+  const CANVAS_PADDING = 50;
+
+  // Initialize puzzle pieces
+  const initializePuzzle = useCallback(() => {
+    if (!imageRef.current) return;
+
+    const img = imageRef.current;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+
+    // Set canvas size
+    canvas.width = window.innerWidth - 100;
+    canvas.height = window.innerHeight - 200;
+
+    // Calculate piece dimensions
+    const pieceWidth = Math.min(img.width / config.cols, 150);
+    const pieceHeight = Math.min(img.height / config.rows, 150);
+
+    const newPieces = [];
+    for (let row = 0; row < config.rows; row++) {
+      for (let col = 0; col < config.cols; col++) {
+        const id = row * config.cols + col;
+        const piece = {
+          id,
+          row,
+          col,
+          width: pieceWidth,
+          height: pieceHeight,
+          sourceX: (img.width / config.cols) * col,
+          sourceY: (img.height / config.rows) * row,
+          sourceWidth: img.width / config.cols,
+          sourceHeight: img.height / config.rows,
+          // Correct position (where piece should end up)
+          correctX: CANVAS_PADDING + col * pieceWidth,
+          correctY: CANVAS_PADDING + row * pieceHeight,
+          // Current position (randomized)
+          x: Math.random() * (canvas.width - pieceWidth - 200) + 100,
+          y: Math.random() * (canvas.height - pieceHeight - 200) + 100,
+          placed: false,
+          connected: false
+        };
+
+        // Make sure pieces don't start too close to their correct position
+        const distanceToCorrect = Math.sqrt(
+          Math.pow(piece.x - piece.correctX, 2) + Math.pow(piece.y - piece.correctY, 2)
+        );
+        if (distanceToCorrect < 100) {
+          piece.x = piece.correctX + (Math.random() - 0.5) * 200;
+          piece.y = piece.correctY + (Math.random() - 0.5) * 200;
+        }
+
+        newPieces.push(piece);
+      }
+    }
+
+    setPieces(newPieces);
+    setConnectedPieces(new Set());
+    setGameCompleted(false);
+  }, [config, image]);
+
+  // Draw puzzle pieces on canvas
+  const drawPuzzle = useCallback(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    const img = imageRef.current;
+
+    if (!canvas || !ctx || !img) return;
+
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw background grid (optional - helps users see where pieces go)
+    ctx.strokeStyle = 'rgba(200, 200, 200, 0.5)';
+    ctx.lineWidth = 1;
+    for (let row = 0; row < config.rows; row++) {
+      for (let col = 0; col < config.cols; col++) {
+        const x = CANVAS_PADDING + col * pieces[0]?.width || 0;
+        const y = CANVAS_PADDING + row * pieces[0]?.height || 0;
+        const width = pieces[0]?.width || 0;
+        const height = pieces[0]?.height || 0;
+        ctx.strokeRect(x, y, width, height);
+      }
+    }
+
+    // Draw pieces (placed pieces first, then loose pieces)
+    const sortedPieces = [...pieces].sort((a, b) => {
+      if (a.placed && !b.placed) return -1;
+      if (!a.placed && b.placed) return 1;
+      return 0;
+    });
+
+    sortedPieces.forEach(piece => {
+      // Save context for transformations
+      ctx.save();
+
+      // Draw piece shadow if not placed
+      if (!piece.placed) {
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetX = 3;
+        ctx.shadowOffsetY = 3;
+      }
+
+      // Draw the piece
+      ctx.drawImage(
+        img,
+        piece.sourceX, piece.sourceY, piece.sourceWidth, piece.sourceHeight,
+        piece.x, piece.y, piece.width, piece.height
+      );
+
+      // Draw border
+      ctx.strokeStyle = piece.placed ? '#4CAF50' : '#333';
+      ctx.lineWidth = piece.placed ? 3 : 2;
+      ctx.strokeRect(piece.x, piece.y, piece.width, piece.height);
+
+      // Highlight if being dragged
+      if (draggedPiece && draggedPiece.id === piece.id) {
+        ctx.strokeStyle = '#2196F3';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(piece.x, piece.y, piece.width, piece.height);
+      }
+
+      ctx.restore();
+    });
+
+    // Draw completion message
+    if (gameCompleted) {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = 'white';
+      ctx.font = '48px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('🎉 Puzzle Completed! 🎉', canvas.width / 2, canvas.height / 2);
+
+      ctx.font = '24px Arial';
+      ctx.fillText('Great job!', canvas.width / 2, canvas.height / 2 + 60);
+    }
+  }, [pieces, draggedPiece, config, gameCompleted]);
+
+  // Check if piece is close enough to snap to correct position
+  const checkSnapToPlace = (piece) => {
+    const distance = Math.sqrt(
+      Math.pow(piece.x - piece.correctX, 2) + Math.pow(piece.y - piece.correctY, 2)
+    );
+    return distance < PIECE_SNAP_DISTANCE;
+  };
+
+  // Find connected pieces that should move together
+  const findConnectedPieces = (piece) => {
+    const connected = new Set([piece.id]);
+    const toCheck = [piece];
+
+    while (toCheck.length > 0) {
+      const current = toCheck.pop();
+
+      // Check adjacent pieces
+      const adjacentIds = [
+        current.row > 0 ? (current.row - 1) * config.cols + current.col : -1, // up
+        current.row < config.rows - 1 ? (current.row + 1) * config.cols + current.col : -1, // down
+        current.col > 0 ? current.row * config.cols + (current.col - 1) : -1, // left
+        current.col < config.cols - 1 ? current.row * config.cols + (current.col + 1) : -1 // right
+      ].filter(id => id !== -1);
+
+      adjacentIds.forEach(id => {
+        if (!connected.has(id) && connectedPieces.has(id)) {
+          connected.add(id);
+          const adjacentPiece = pieces.find(p => p.id === id);
+          if (adjacentPiece) {
+            toCheck.push(adjacentPiece);
+          }
+        }
+      });
+    }
+
+    return connected;
+  };
+
+  // Handle mouse events
+  const handleMouseDown = (e) => {
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    // Find clicked piece (check from top to bottom)
+    for (let i = pieces.length - 1; i >= 0; i--) {
+      const piece = pieces[i];
+      if (
+        mouseX >= piece.x &&
+        mouseX <= piece.x + piece.width &&
+        mouseY >= piece.y &&
+        mouseY <= piece.y + piece.height &&
+        !piece.placed
+      ) {
+        setDraggedPiece(piece);
+        setDragOffset({
+          x: mouseX - piece.x,
+          y: mouseY - piece.y
+        });
+        break;
+      }
+    }
+  };
+
+  const handleMouseMove = (e) => {
+    if (!draggedPiece) return;
+
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const newX = mouseX - dragOffset.x;
+    const newY = mouseY - dragOffset.y;
+
+    // Move connected pieces together
+    const connectedIds = findConnectedPieces(draggedPiece);
+    const deltaX = newX - draggedPiece.x;
+    const deltaY = newY - draggedPiece.y;
+
+    setPieces(prevPieces =>
+      prevPieces.map(piece => {
+        if (connectedIds.has(piece.id)) {
+          return {
+            ...piece,
+            x: piece.x + deltaX,
+            y: piece.y + deltaY
+          };
+        }
+        return piece;
+      })
+    );
+  };
+
+  const handleMouseUp = () => {
+    if (!draggedPiece) return;
+
+    // Check if piece should snap to place
+    if (checkSnapToPlace(draggedPiece)) {
+      const connectedIds = findConnectedPieces(draggedPiece);
+
+      setPieces(prevPieces =>
+        prevPieces.map(piece => {
+          if (connectedIds.has(piece.id)) {
+            return {
+              ...piece,
+              x: piece.correctX,
+              y: piece.correctY,
+              placed: true
+            };
+          }
+          return piece;
+        })
+      );
+
+      // Add to connected pieces
+      setConnectedPieces(prev => new Set([...prev, ...connectedIds]));
+
+      // Check for completion
+      const newConnectedCount = connectedPieces.size + connectedIds.size;
+      if (newConnectedCount >= config.pieceCount) {
+        setTimeout(() => setGameCompleted(true), 500);
+      }
+    }
+
+    setDraggedPiece(null);
+  };
+
+  // Initialize when component mounts or config changes
+  useEffect(() => {
+    if (imageRef.current && imageRef.current.complete) {
+      initializePuzzle();
+    }
+  }, [initializePuzzle]);
+
+  // Redraw when pieces change
+  useEffect(() => {
+    drawPuzzle();
+  }, [drawPuzzle]);
+
+  // Handle window resize
+  useEffect(() => {
+    const handleResize = () => {
+      initializePuzzle();
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [initializePuzzle]);
+
+  return (
+    <div className="puzzle-game">
+      <div className="game-header">
+        <button className="secondary-btn" onClick={onReset}>
+          ← New Puzzle
+        </button>
+        <div className="game-info">
+          <span>Pieces: {connectedPieces.size}/{config.pieceCount}</span>
+          <span>Progress: {Math.round((connectedPieces.size / config.pieceCount) * 100)}%</span>
+        </div>
+      </div>
+
+      <div className="game-canvas-container">
+        <canvas
+          ref={canvasRef}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          className="puzzle-canvas"
+        />
+      </div>
+
+      <img
+        ref={imageRef}
+        src={image}
+        alt="Puzzle source"
+        style={{ display: 'none' }}
+        onLoad={initializePuzzle}
+      />
+    </div>
+  );
+};
+
+export default PuzzleGame;
