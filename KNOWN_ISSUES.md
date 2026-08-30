@@ -8,7 +8,14 @@
 ## 🐛 Active Bugs  
 *Issues that affect user experience*
 
-- [ ] None currently identified
+- [x] **Canvas Sizing Issues** - Large puzzles don't fit on screen, pieces scattered incorrectly
+  - **Steps to reproduce:** 1. Upload image, 2. Select 64+ pieces, 3. Create puzzle
+  - **Expected:** Puzzle fits on screen with proper piece layout  
+  - **Actual:** Canvas too large, pieces overflow, window resize resets progress
+  - **Priority:** High
+  - **Assigned to:** Developer A  
+  - **Branch:** `bugfix/canvas-sizing-and-piece-layout`
+  - **Status:** ✅ Fixed - Ready for PR
 
 ## 🔍 Testing Checklist
 *Use this to identify new bugs*

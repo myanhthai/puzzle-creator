@@ -4,8 +4,8 @@
 
 | Developer | Feature | Branch | Files |
 |-----------|---------|---------|-------|
-| Dev A | [Feature Name] | `feature/branch-name` | `src/components/...` |
-| Dev B | [Feature Name] | `feature/branch-name` | `src/components/...` |
+| Dev A | Canvas Sizing Bug Fix | `bugfix/canvas-sizing-and-piece-layout` | `src/components/PuzzleGame.js`, `PuzzleGame.css` |
+| Dev B | [Available for next feature] | - | - |
 
 ## Bug Fix Protocol
 
