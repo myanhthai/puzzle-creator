@@ -373,18 +373,6 @@ const PuzzleGame = ({ image, config, onReset }) => {
       ctx.restore();
     });
 
-    // Draw confetti
-    if (showCelebration && confetti.length > 0) {
-      confetti.forEach(piece => {
-        ctx.save();
-        ctx.translate(piece.x, piece.y);
-        ctx.rotate(piece.rotation);
-        ctx.fillStyle = piece.color;
-        ctx.fillRect(-piece.size / 2, -piece.size / 2, piece.size, piece.size);
-        ctx.restore();
-      });
-    }
-
     // Draw completion message
     if (gameCompleted) {
       ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
@@ -401,6 +389,18 @@ const PuzzleGame = ({ image, config, onReset }) => {
 
       ctx.font = '18px Arial';
       ctx.fillText('Great job!', canvas.width / 2, canvas.height / 2 + 100);
+    }
+
+    // Draw confetti OVER the completion message for maximum celebration effect
+    if (showCelebration && confetti.length > 0) {
+      confetti.forEach(piece => {
+        ctx.save();
+        ctx.translate(piece.x, piece.y);
+        ctx.rotate(piece.rotation);
+        ctx.fillStyle = piece.color;
+        ctx.fillRect(-piece.size / 2, -piece.size / 2, piece.size, piece.size);
+        ctx.restore();
+      });
     }
   }, [pieces, draggedPiece, config, gameCompleted, showCelebration, confetti]);
 
