@@ -418,7 +418,7 @@ const PuzzleGame = ({ image, config, onReset }) => {
     drawPuzzle();
   }, [drawPuzzle]);
 
-  // Timer effect - runs every second when active
+  // Timer effect - runs every second when active (only updates timer, not score)
   useEffect(() => {
     if (!isTimerActive || !startTime) return;
 
@@ -426,10 +426,6 @@ const PuzzleGame = ({ image, config, onReset }) => {
       const now = Date.now();
       const elapsed = Math.floor((now - startTime) / 1000);
       setElapsedTime(elapsed);
-
-      // Update score in real-time
-      const score = calculateScore(config.pieceCount, elapsed, connectedPieces.size);
-      setCurrentScore(score);
     }, 1000);
 
     return () => {
@@ -438,7 +434,17 @@ const PuzzleGame = ({ image, config, onReset }) => {
         timerRef.current = null;
       }
     };
-  }, [isTimerActive, startTime, config.pieceCount, connectedPieces.size]);
+  }, [isTimerActive, startTime]);
+
+  // Update score only when pieces are placed
+  useEffect(() => {
+    if (connectedPieces.size > 0 && startTime) {
+      const now = Date.now();
+      const elapsed = Math.floor((now - startTime) / 1000);
+      const score = calculateScore(config.pieceCount, elapsed, connectedPieces.size);
+      setCurrentScore(score);
+    }
+  }, [connectedPieces.size, startTime, config.pieceCount]);
 
   // Handle tab visibility - pause timer when tab is hidden
   useEffect(() => {
