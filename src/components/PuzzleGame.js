@@ -18,8 +18,112 @@ const PuzzleGame = ({ image, config, onReset }) => {
   const [isTimerActive, setIsTimerActive] = useState(false);
   const timerRef = useRef(null);
 
+  // Celebration effects state
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [confetti, setConfetti] = useState([]);
+  const celebrationTimerRef = useRef(null);
+
   const PIECE_SNAP_DISTANCE = 30;
   const CANVAS_PADDING = 50;
+
+  // Audio context for sound effects
+  const audioContextRef = useRef(null);
+
+  // Initialize audio context
+  const initAudioContext = useCallback(() => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    return audioContextRef.current;
+  }, []);
+
+  // Sound effect functions
+  const playClickSound = useCallback(() => {
+    try {
+      const audioContext = initAudioContext();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      // Create a pleasant click sound
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(400, audioContext.currentTime + 0.1);
+
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.1);
+    } catch (error) {
+      console.log('Sound not available:', error);
+    }
+  }, [initAudioContext]);
+
+  const playCelebrationSound = useCallback(() => {
+    try {
+      const audioContext = initAudioContext();
+
+      // Create a celebration melody
+      const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+      const timing = [0, 0.15, 0.3, 0.45];
+
+      notes.forEach((freq, index) => {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        oscillator.frequency.setValueAtTime(freq, audioContext.currentTime + timing[index]);
+        oscillator.type = 'sine';
+
+        gainNode.gain.setValueAtTime(0, audioContext.currentTime + timing[index]);
+        gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + timing[index] + 0.05);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + timing[index] + 0.3);
+
+        oscillator.start(audioContext.currentTime + timing[index]);
+        oscillator.stop(audioContext.currentTime + timing[index] + 0.3);
+      });
+    } catch (error) {
+      console.log('Celebration sound not available:', error);
+    }
+  }, [initAudioContext]);
+
+  // Confetti animation
+  const createConfetti = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return [];
+
+    const confettiPieces = [];
+    for (let i = 0; i < 50; i++) {
+      confettiPieces.push({
+        x: Math.random() * canvas.width,
+        y: -10,
+        vx: (Math.random() - 0.5) * 6,
+        vy: Math.random() * 3 + 2,
+        color: `hsl(${Math.random() * 360}, 70%, 60%)`,
+        size: Math.random() * 8 + 4,
+        rotation: Math.random() * Math.PI * 2,
+        rotationSpeed: (Math.random() - 0.5) * 0.3
+      });
+    }
+    return confettiPieces;
+  }, []);
+
+  const updateConfetti = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return [];
+
+    return confetti.map(piece => ({
+      ...piece,
+      x: piece.x + piece.vx,
+      y: piece.y + piece.vy,
+      vy: piece.vy + 0.1, // gravity
+      rotation: piece.rotation + piece.rotationSpeed
+    })).filter(piece => piece.y < canvas.height + 20);
+  }, [confetti]);
 
   // Timer and scoring utilities
   const formatTime = (seconds) => {
@@ -269,6 +373,18 @@ const PuzzleGame = ({ image, config, onReset }) => {
       ctx.restore();
     });
 
+    // Draw confetti
+    if (showCelebration && confetti.length > 0) {
+      confetti.forEach(piece => {
+        ctx.save();
+        ctx.translate(piece.x, piece.y);
+        ctx.rotate(piece.rotation);
+        ctx.fillStyle = piece.color;
+        ctx.fillRect(-piece.size / 2, -piece.size / 2, piece.size, piece.size);
+        ctx.restore();
+      });
+    }
+
     // Draw completion message
     if (gameCompleted) {
       ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
@@ -286,7 +402,7 @@ const PuzzleGame = ({ image, config, onReset }) => {
       ctx.font = '18px Arial';
       ctx.fillText('Great job!', canvas.width / 2, canvas.height / 2 + 100);
     }
-  }, [pieces, draggedPiece, config, gameCompleted]);
+  }, [pieces, draggedPiece, config, gameCompleted, showCelebration, confetti]);
 
 
   // Handle mouse events
@@ -409,6 +525,9 @@ const PuzzleGame = ({ image, config, onReset }) => {
         })
       );
 
+      // Play click sound for successful piece placement
+      playClickSound();
+
       // Find all connected components after placing these pieces
       const findAllConnected = (placedPieceIds) => {
         const allConnected = new Set(placedPieceIds);
@@ -448,6 +567,12 @@ const PuzzleGame = ({ image, config, onReset }) => {
       // Check for completion
       if (newConnectedPieces.size >= config.pieceCount) {
         setIsTimerActive(false);
+
+        // Start celebration effects
+        playCelebrationSound();
+        setConfetti(createConfetti());
+        setShowCelebration(true);
+
         setTimeout(() => setGameCompleted(true), 500);
       }
     }
@@ -544,8 +669,34 @@ const PuzzleGame = ({ image, config, onReset }) => {
     return () => window.removeEventListener('resize', handleResize);
   }, [pieces, drawPuzzle, config.cols]);
 
+  // Confetti animation effect
+  useEffect(() => {
+    if (!showCelebration) return;
+
+    celebrationTimerRef.current = setInterval(() => {
+      setConfetti(updateConfetti);
+    }, 50);
+
+    // Stop celebration after 5 seconds
+    setTimeout(() => {
+      setShowCelebration(false);
+      setConfetti([]);
+      if (celebrationTimerRef.current) {
+        clearInterval(celebrationTimerRef.current);
+        celebrationTimerRef.current = null;
+      }
+    }, 5000);
+
+    return () => {
+      if (celebrationTimerRef.current) {
+        clearInterval(celebrationTimerRef.current);
+        celebrationTimerRef.current = null;
+      }
+    };
+  }, [showCelebration, updateConfetti]);
+
   return (
-    <div className="puzzle-game">
+    <div className={`puzzle-game ${showCelebration ? 'celebration-active' : ''}`}>
       <div className="game-header">
         <button className="secondary-btn" onClick={onReset}>
           ← New Puzzle
