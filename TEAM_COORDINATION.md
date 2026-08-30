@@ -4,8 +4,8 @@
 
 | Developer | Feature | Branch | Files |
 |-----------|---------|---------|-------|
-| Dev A | Timer & Scoring System | `feature/timer-and-scoring` | `src/components/PuzzleGame.js` |
-| Dev B | Available for bug fixes or PR reviews | - | - |
+| Dev A | Sound Effects & Celebrations | `feature/sound-effects-and-celebrations` | `src/components/PuzzleGame.js`, `public/` |
+| Dev B | Timer & Scoring System (PR Review) | `feature/timer-and-scoring` | - |
 
 ## Bug Fix Protocol
 
@@ -34,7 +34,8 @@
 ### High Priority
 - [ ] Realistic jigsaw shapes
 - [ ] Save/load progress  
-- [x] Timer and scoring (In Progress - Dev A)
+- [x] Timer and scoring (Ready for PR - Dev A)
+- [x] Sound effects and celebrations (In Progress - Dev A)
 - [ ] Mobile touch support
 
 ### Medium Priority
