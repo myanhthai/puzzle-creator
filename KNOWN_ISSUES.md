@@ -17,6 +17,15 @@
   - **Branch:** `bugfix/canvas-sizing-and-piece-layout`
   - **Status:** ✅ Fixed - Ready for PR
 
+- [ ] **Image Aspect Ratio Distortion** - Photos get stretched/squished to fit square grid
+  - **Steps to reproduce:** 1. Upload non-square image (portrait/landscape), 2. Create puzzle, 3. Notice distortion
+  - **Expected:** Puzzle pieces should maintain image's original proportions
+  - **Actual:** Image is forced into square pieces, causing stretching/squishing
+  - **Priority:** High
+  - **Assigned to:** Developer A
+  - **Branch:** `bugfix/preserve-image-aspect-ratio`
+  - **Status:** 🔧 In Progress
+
 ## 🔍 Testing Checklist
 *Use this to identify new bugs*
 

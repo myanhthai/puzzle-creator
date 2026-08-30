@@ -4,8 +4,8 @@
 
 | Developer | Feature | Branch | Files |
 |-----------|---------|---------|-------|
-| Dev A | Canvas Sizing Bug Fix | `bugfix/canvas-sizing-and-piece-layout` | `src/components/PuzzleGame.js`, `PuzzleGame.css` |
-| Dev B | [Available for next feature] | - | - |
+| Dev A | Image Aspect Ratio Fix | `bugfix/preserve-image-aspect-ratio` | `src/components/PuzzleGame.js` |
+| Dev B | Canvas Sizing Bug Fix (PR Review) | `bugfix/canvas-sizing-and-piece-layout` | - |
 
 ## Bug Fix Protocol
 
