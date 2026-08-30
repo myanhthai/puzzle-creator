@@ -4,8 +4,8 @@
 
 | Developer | Feature | Branch | Files |
 |-----------|---------|---------|-------|
-| Dev A | Image Aspect Ratio Fix | `bugfix/preserve-image-aspect-ratio` | `src/components/PuzzleGame.js` |
-| Dev B | Canvas Sizing Bug Fix (PR Review) | `bugfix/canvas-sizing-and-piece-layout` | - |
+| Dev A | Timer & Scoring System | `feature/timer-and-scoring` | `src/components/PuzzleGame.js` |
+| Dev B | Available for bug fixes or PR reviews | - | - |
 
 ## Bug Fix Protocol
 
@@ -34,7 +34,7 @@
 ### High Priority
 - [ ] Realistic jigsaw shapes
 - [ ] Save/load progress  
-- [ ] Timer and scoring
+- [x] Timer and scoring (In Progress - Dev A)
 - [ ] Mobile touch support
 
 ### Medium Priority
