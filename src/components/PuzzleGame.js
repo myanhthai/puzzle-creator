@@ -42,37 +42,47 @@ const PuzzleGame = ({ image, config, onReset }) => {
     try {
       const audioContext = initAudioContext();
 
-      // Create a more clacky, mechanical click sound
+      // Create a gentle, soft click sound
       const oscillator1 = audioContext.createOscillator();
       const oscillator2 = audioContext.createOscillator();
       const gainNode1 = audioContext.createGain();
       const gainNode2 = audioContext.createGain();
 
-      // First oscillator - sharp attack for the "click"
-      oscillator1.connect(gainNode1);
+      // Add low-pass filter to make sounds gentler
+      const filter1 = audioContext.createBiquadFilter();
+      const filter2 = audioContext.createBiquadFilter();
+      filter1.type = 'lowpass';
+      filter2.type = 'lowpass';
+      filter1.frequency.setValueAtTime(800, audioContext.currentTime);
+      filter2.frequency.setValueAtTime(400, audioContext.currentTime);
+
+      // First oscillator - soft click with sine wave (gentler than square)
+      oscillator1.connect(filter1);
+      filter1.connect(gainNode1);
       gainNode1.connect(audioContext.destination);
-      oscillator1.type = 'square';
-      oscillator1.frequency.setValueAtTime(1200, audioContext.currentTime);
-      oscillator1.frequency.exponentialRampToValueAtTime(800, audioContext.currentTime + 0.02);
+      oscillator1.type = 'sine';
+      oscillator1.frequency.setValueAtTime(600, audioContext.currentTime);
+      oscillator1.frequency.exponentialRampToValueAtTime(400, audioContext.currentTime + 0.03);
 
-      gainNode1.gain.setValueAtTime(0.4, audioContext.currentTime);
-      gainNode1.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.02);
+      gainNode1.gain.setValueAtTime(0.08, audioContext.currentTime);
+      gainNode1.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.03);
 
-      // Second oscillator - lower frequency for the "clack"
-      oscillator2.connect(gainNode2);
+      // Second oscillator - gentle lower tone
+      oscillator2.connect(filter2);
+      filter2.connect(gainNode2);
       gainNode2.connect(audioContext.destination);
-      oscillator2.type = 'sawtooth';
-      oscillator2.frequency.setValueAtTime(400, audioContext.currentTime + 0.015);
-      oscillator2.frequency.exponentialRampToValueAtTime(200, audioContext.currentTime + 0.04);
+      oscillator2.type = 'triangle';
+      oscillator2.frequency.setValueAtTime(300, audioContext.currentTime + 0.02);
+      oscillator2.frequency.exponentialRampToValueAtTime(150, audioContext.currentTime + 0.06);
 
-      gainNode2.gain.setValueAtTime(0.3, audioContext.currentTime + 0.015);
-      gainNode2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.04);
+      gainNode2.gain.setValueAtTime(0.06, audioContext.currentTime + 0.02);
+      gainNode2.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.06);
 
       oscillator1.start(audioContext.currentTime);
-      oscillator1.stop(audioContext.currentTime + 0.02);
+      oscillator1.stop(audioContext.currentTime + 0.03);
 
-      oscillator2.start(audioContext.currentTime + 0.015);
-      oscillator2.stop(audioContext.currentTime + 0.04);
+      oscillator2.start(audioContext.currentTime + 0.02);
+      oscillator2.stop(audioContext.currentTime + 0.06);
     } catch (error) {
       console.log('Sound not available:', error);
     }
@@ -82,39 +92,44 @@ const PuzzleGame = ({ image, config, onReset }) => {
     try {
       const audioContext = initAudioContext();
 
-      // Create a triumphant horn fanfare sound
-      const playHornNote = (frequency, startTime, duration, volume = 0.3) => {
+      // Create a gentle, pleasant celebration chime
+      const playChimeNote = (frequency, startTime, duration, volume = 0.15) => {
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
 
-        oscillator.connect(gainNode);
+        // Add low-pass filter for smoother, gentler sound
+        const filter = audioContext.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(frequency * 2, audioContext.currentTime + startTime);
+
+        oscillator.connect(filter);
+        filter.connect(gainNode);
         gainNode.connect(audioContext.destination);
 
-        // Use sawtooth wave to mimic brass horn sound
-        oscillator.type = 'sawtooth';
+        // Use sine wave for the gentlest possible sound
+        oscillator.type = 'sine';
         oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime + startTime);
 
-        // Horn-like envelope with quick attack and sustained tone
+        // Gentle envelope with soft attack and natural decay
         gainNode.gain.setValueAtTime(0, audioContext.currentTime + startTime);
-        gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + startTime + 0.05);
-        gainNode.gain.linearRampToValueAtTime(volume * 0.8, audioContext.currentTime + startTime + duration - 0.1);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + startTime + duration);
+        gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + startTime + 0.1);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + startTime + duration);
 
         oscillator.start(audioContext.currentTime + startTime);
         oscillator.stop(audioContext.currentTime + startTime + duration);
       };
 
-      // Triumphant fanfare sequence: Ta-da-da-DAAA!
-      playHornNote(349.23, 0, 0.25, 0.4);     // F4 - Ta
-      playHornNote(523.25, 0.3, 0.25, 0.4);   // C5 - da
-      playHornNote(659.25, 0.6, 0.25, 0.4);   // E5 - da
-      playHornNote(783.99, 0.9, 0.8, 0.5);    // G5 - DAAA!
+      // Gentle celebration chimes: soft ascending melody
+      playChimeNote(261.63, 0, 0.6, 0.12);     // C4 - gentle start
+      playChimeNote(329.63, 0.2, 0.6, 0.14);   // E4 - soft harmony
+      playChimeNote(392.00, 0.4, 0.8, 0.16);   // G4 - building up
+      playChimeNote(523.25, 0.6, 1.0, 0.18);   // C5 - gentle finale
 
-      // Add harmonic overtones for richer horn sound
-      playHornNote(349.23 * 2, 0, 0.25, 0.15);     // Octave harmonic
-      playHornNote(523.25 * 1.5, 0.3, 0.25, 0.15); // Fifth harmonic
-      playHornNote(659.25 * 1.2, 0.6, 0.25, 0.15); // Third harmonic
-      playHornNote(783.99 * 1.5, 0.9, 0.8, 0.2);   // Fifth harmonic for finale
+      // Add very subtle harmonics for warmth (much quieter)
+      playChimeNote(261.63 * 2, 0, 0.4, 0.04);     // Soft octave
+      playChimeNote(329.63 * 2, 0.2, 0.4, 0.05);   // Soft octave
+      playChimeNote(392.00 * 2, 0.4, 0.5, 0.06);   // Soft octave
+      playChimeNote(523.25 * 2, 0.6, 0.6, 0.07);   // Soft octave
 
     } catch (error) {
       console.log('Celebration sound not available:', error);
