@@ -29,17 +29,16 @@ const PuzzleGame = ({ image, config, onReset }) => {
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const calculateScore = (pieceCount, elapsedSeconds) => {
-    const baseScore = pieceCount * 10;
+  const calculateScore = (pieceCount, elapsedSeconds, placedPieces) => {
+    // Base score for pieces placed
+    const baseScore = placedPieces * 10;
 
-    // Expected time: roughly 2 seconds per piece minimum, scaling with difficulty
+    // Time bonus: starts at 100% bonus, decreases over time but never goes negative
     const expectedTime = Math.max(30, pieceCount * 2);
+    const timeBonus = Math.max(0, (expectedTime - elapsedSeconds) * 2);
 
-    // Diminishing returns multiplier: bonus for beating expected time, minimum 1x
-    const timeDiff = expectedTime - elapsedSeconds;
-    const multiplier = Math.max(1, (timeDiff / expectedTime) + 1);
-
-    return Math.round(baseScore * multiplier);
+    // Total score only increases - base score + time bonus (when positive)
+    return Math.round(baseScore + timeBonus);
   };
 
   // Initialize puzzle pieces
@@ -232,7 +231,7 @@ const PuzzleGame = ({ image, config, onReset }) => {
 
       ctx.font = '24px Arial';
       ctx.fillText(`Time: ${formatTime(elapsedTime)}`, canvas.width / 2, canvas.height / 2 + 20);
-      ctx.fillText(`Final Score: ${currentScore.toLocaleString()}`, canvas.width / 2, canvas.height / 2 + 60);
+      ctx.fillText(`Final Score: ${currentScore}`, canvas.width / 2, canvas.height / 2 + 60);
 
       ctx.font = '18px Arial';
       ctx.fillText('Great job!', canvas.width / 2, canvas.height / 2 + 100);
@@ -429,7 +428,7 @@ const PuzzleGame = ({ image, config, onReset }) => {
       setElapsedTime(elapsed);
 
       // Update score in real-time
-      const score = calculateScore(config.pieceCount, elapsed);
+      const score = calculateScore(config.pieceCount, elapsed, connectedPieces.size);
       setCurrentScore(score);
     }, 1000);
 
@@ -439,7 +438,7 @@ const PuzzleGame = ({ image, config, onReset }) => {
         timerRef.current = null;
       }
     };
-  }, [isTimerActive, startTime, config.pieceCount]);
+  }, [isTimerActive, startTime, config.pieceCount, connectedPieces.size]);
 
   // Handle tab visibility - pause timer when tab is hidden
   useEffect(() => {
@@ -493,7 +492,7 @@ const PuzzleGame = ({ image, config, onReset }) => {
         <div className="game-info">
           <div className="timer-score-section">
             <div className="timer">⏱️ {formatTime(elapsedTime)}</div>
-            <div className="score">🏆 {currentScore.toLocaleString()}</div>
+            <div className="score">🏆 {currentScore}</div>
           </div>
           <div className="progress-section">
             <span>Pieces: {connectedPieces.size}/{config.pieceCount}</span>

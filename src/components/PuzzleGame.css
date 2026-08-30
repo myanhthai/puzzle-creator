@@ -34,6 +34,8 @@
   gap: 8px;
   align-items: center;
   z-index: 10;
+  max-width: calc(100% - 40px);
+  pointer-events: none;
 }
 
 .timer, .score {
@@ -44,8 +46,12 @@
   font-size: 1.4rem;
   font-weight: 700;
   min-width: 140px;
+  max-width: 100%;
   text-align: center;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .timer {
