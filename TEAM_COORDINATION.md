@@ -19,8 +19,8 @@
 
 | Developer | Feature | Branch | Files |
 |-----------|---------|---------|-------|
-| Dev A | Available for next feature | `main` | - |
-| Dev B | Available for next feature | - | - |
+| Dev A | Documentation Updates | `feature/documentation-updates` | `README.md`, `TEAM_COORDINATION.md`, `KNOWN_ISSUES.md` |
+| Dev B | Available for PR review | - | - |
 
 ## Bug Fix Protocol
 
