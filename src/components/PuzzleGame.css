@@ -21,6 +21,38 @@
   gap: 30px;
   font-size: 1.1rem;
   font-weight: 600;
+  align-items: center;
+}
+
+.timer-score-section {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: center;
+}
+
+.timer, .score {
+  background: rgba(255, 255, 255, 0.15);
+  padding: 4px 12px;
+  border-radius: 15px;
+  backdrop-filter: blur(10px);
+  font-size: 0.9rem;
+  min-width: 100px;
+  text-align: center;
+}
+
+.timer {
+  color: #e3f2fd;
+}
+
+.score {
+  color: #fff3e0;
+  font-size: 0.8rem;
+}
+
+.progress-section {
+  display: flex;
+  gap: 30px;
 }
 
 .game-info span {

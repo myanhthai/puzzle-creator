@@ -11,8 +11,36 @@ const PuzzleGame = ({ image, config, onReset }) => {
   const [gameCompleted, setGameCompleted] = useState(false);
   const [connectedPieces, setConnectedPieces] = useState(new Set());
 
+  // Timer and scoring state
+  const [startTime, setStartTime] = useState(null);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [currentScore, setCurrentScore] = useState(0);
+  const [isTimerActive, setIsTimerActive] = useState(false);
+  const timerRef = useRef(null);
+
   const PIECE_SNAP_DISTANCE = 30;
   const CANVAS_PADDING = 50;
+
+  // Timer and scoring utilities
+  const formatTime = (seconds) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const calculateScore = (pieceCount, elapsedSeconds) => {
+    const baseScore = pieceCount * 10;
+
+    // Expected time: roughly 2 seconds per piece minimum, scaling with difficulty
+    const expectedTime = Math.max(30, pieceCount * 2);
+
+    // Diminishing returns multiplier: bonus for beating expected time, minimum 1x
+    const timeDiff = expectedTime - elapsedSeconds;
+    const multiplier = Math.max(1, (timeDiff / expectedTime) + 1);
+
+    return Math.round(baseScore * multiplier);
+  };
 
   // Initialize puzzle pieces
   const initializePuzzle = useCallback(() => {
@@ -109,6 +137,13 @@ const PuzzleGame = ({ image, config, onReset }) => {
     setPieces(newPieces);
     setConnectedPieces(new Set());
     setGameCompleted(false);
+
+    // Start the timer
+    const now = Date.now();
+    setStartTime(now);
+    setElapsedTime(0);
+    setCurrentScore(0);
+    setIsTimerActive(true);
   }, [config]);
 
   // Draw puzzle pieces on canvas
@@ -193,10 +228,14 @@ const PuzzleGame = ({ image, config, onReset }) => {
       ctx.fillStyle = 'white';
       ctx.font = '48px Arial';
       ctx.textAlign = 'center';
-      ctx.fillText('🎉 Puzzle Completed! 🎉', canvas.width / 2, canvas.height / 2);
+      ctx.fillText('🎉 Puzzle Completed! 🎉', canvas.width / 2, canvas.height / 2 - 40);
 
       ctx.font = '24px Arial';
-      ctx.fillText('Great job!', canvas.width / 2, canvas.height / 2 + 60);
+      ctx.fillText(`Time: ${formatTime(elapsedTime)}`, canvas.width / 2, canvas.height / 2 + 20);
+      ctx.fillText(`Final Score: ${currentScore.toLocaleString()}`, canvas.width / 2, canvas.height / 2 + 60);
+
+      ctx.font = '18px Arial';
+      ctx.fillText('Great job!', canvas.width / 2, canvas.height / 2 + 100);
     }
   }, [pieces, draggedPiece, config, gameCompleted]);
 
@@ -359,6 +398,7 @@ const PuzzleGame = ({ image, config, onReset }) => {
 
       // Check for completion
       if (newConnectedPieces.size >= config.pieceCount) {
+        setIsTimerActive(false);
         setTimeout(() => setGameCompleted(true), 500);
       }
     }
@@ -378,6 +418,50 @@ const PuzzleGame = ({ image, config, onReset }) => {
   useEffect(() => {
     drawPuzzle();
   }, [drawPuzzle]);
+
+  // Timer effect - runs every second when active
+  useEffect(() => {
+    if (!isTimerActive || !startTime) return;
+
+    timerRef.current = setInterval(() => {
+      const now = Date.now();
+      const elapsed = Math.floor((now - startTime) / 1000);
+      setElapsedTime(elapsed);
+
+      // Update score in real-time
+      const score = calculateScore(config.pieceCount, elapsed);
+      setCurrentScore(score);
+    }, 1000);
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [isTimerActive, startTime, config.pieceCount]);
+
+  // Handle tab visibility - pause timer when tab is hidden
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // Tab hidden - pause timer
+        setIsTimerActive(false);
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
+      } else {
+        // Tab visible - resume timer if game not completed
+        if (!gameCompleted && startTime) {
+          setIsTimerActive(true);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [gameCompleted, startTime]);
 
   // Handle window resize - only resize canvas, don't reset puzzle
   useEffect(() => {
@@ -407,8 +491,14 @@ const PuzzleGame = ({ image, config, onReset }) => {
           ← New Puzzle
         </button>
         <div className="game-info">
-          <span>Pieces: {connectedPieces.size}/{config.pieceCount}</span>
-          <span>Progress: {Math.round((connectedPieces.size / config.pieceCount) * 100)}%</span>
+          <div className="timer-score-section">
+            <div className="timer">⏱️ {formatTime(elapsedTime)}</div>
+            <div className="score">🏆 {currentScore.toLocaleString()}</div>
+          </div>
+          <div className="progress-section">
+            <span>Pieces: {connectedPieces.size}/{config.pieceCount}</span>
+            <span>Progress: {Math.round((connectedPieces.size / config.pieceCount) * 100)}%</span>
+          </div>
         </div>
       </div>
 
