@@ -32,7 +32,6 @@ const PuzzleGame = ({ image, config, onReset }) => {
     // Calculate piece dimensions that maintain image aspect ratio
     const sourcePieceWidth = img.width / config.cols;
     const sourcePieceHeight = img.height / config.rows;
-    const sourcePieceAspectRatio = sourcePieceWidth / sourcePieceHeight;
 
     // Determine maximum puzzle area while maintaining aspect ratio
     const maxPuzzleWidth = availableWidth * 0.6;
@@ -55,20 +54,43 @@ const PuzzleGame = ({ image, config, onReset }) => {
     const pieceWidth = puzzleAreaWidth / config.cols;
     const pieceHeight = puzzleAreaHeight / config.rows;
 
-    // Set canvas size to accommodate both puzzle area and scattered pieces
-    canvas.width = availableWidth;
+    // Calculate required width for puzzle + staging areas
+    const minRequiredWidth = puzzleAreaWidth + 400; // Extra space for staging areas
+    const actualCanvasWidth = Math.max(availableWidth, Math.min(minRequiredWidth, 1400));
+
+    // Set canvas size to accommodate both puzzle area and staging areas
+    canvas.width = actualCanvasWidth;
     canvas.height = Math.max(availableHeight, puzzleAreaHeight + 200);
 
     // Center the puzzle area on the canvas
     const totalPuzzleWidth = config.cols * pieceWidth;
     const totalPuzzleHeight = config.rows * pieceHeight;
-    const puzzleStartX = (canvas.width - totalPuzzleWidth) / 2;
+    const puzzleStartX = (actualCanvasWidth - totalPuzzleWidth) / 2;
     const puzzleStartY = (canvas.height - totalPuzzleHeight) / 2;
 
-    // Calculate scramble area (remaining canvas space around centered puzzle)
-    const scrambleAreaWidth = Math.max(canvas.width - totalPuzzleWidth - CANVAS_PADDING * 2, 200);
-    const scrambleStartX = CANVAS_PADDING;
+    // Calculate staging areas on left and right sides
+    const leftStagingWidth = puzzleStartX - CANVAS_PADDING * 2;
+    const rightStagingWidth = leftStagingWidth;
+    const rightStagingStartX = puzzleStartX + totalPuzzleWidth + CANVAS_PADDING;
+    const stagingHeight = canvas.height - CANVAS_PADDING * 2;
 
+    // Calculate how to arrange pieces in staging areas
+    const totalPieces = config.pieceCount;
+    const piecesPerSide = Math.ceil(totalPieces / 2);
+
+    // Calculate grid dimensions for staging areas
+    const stagingCols = Math.ceil(Math.sqrt(piecesPerSide * (leftStagingWidth / stagingHeight)));
+    const stagingRows = Math.ceil(piecesPerSide / stagingCols);
+
+    // Ensure pieces fit in staging area
+    const maxStagingPieceWidth = leftStagingWidth / stagingCols;
+    const maxStagingPieceHeight = stagingHeight / stagingRows;
+
+    // Use smaller pieces in staging if needed, but maintain aspect ratio
+    const stagingPieceWidth = Math.min(maxStagingPieceWidth, pieceWidth * 0.8);
+    const stagingPieceHeight = Math.min(maxStagingPieceHeight, pieceHeight * 0.8);
+
+    // Create pieces first
     const newPieces = [];
     for (let row = 0; row < config.rows; row++) {
       for (let col = 0; col < config.cols; col++) {
@@ -86,25 +108,53 @@ const PuzzleGame = ({ image, config, onReset }) => {
           // Correct position (where piece should end up - centered)
           correctX: puzzleStartX + col * pieceWidth,
           correctY: puzzleStartY + row * pieceHeight,
-          // Current position (randomized around the edges of canvas)
-          x: Math.random() * (scrambleAreaWidth - pieceWidth) + scrambleStartX,
-          y: Math.random() * (canvas.height - pieceHeight - CANVAS_PADDING * 2) + CANVAS_PADDING,
           placed: false,
           connected: false
         };
-
-        // Make sure pieces don't start too close to their correct position
-        const distanceToCorrect = Math.sqrt(
-          Math.pow(piece.x - piece.correctX, 2) + Math.pow(piece.y - piece.correctY, 2)
-        );
-        if (distanceToCorrect < 100) {
-          piece.x = piece.correctX + (Math.random() - 0.5) * 200;
-          piece.y = piece.correctY + (Math.random() - 0.5) * 200;
-        }
-
         newPieces.push(piece);
       }
     }
+
+    // Shuffle the pieces array to randomize staging placement
+    for (let i = newPieces.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [newPieces[i], newPieces[j]] = [newPieces[j], newPieces[i]];
+    }
+
+    // Now assign randomized positions in staging areas
+    let leftSideCounter = 0;
+    let rightSideCounter = 0;
+
+    newPieces.forEach((piece, index) => {
+      // Determine which side this piece goes to (alternate for even distribution)
+      const goesToLeftSide = index % 2 === 0;
+
+      let stagingX, stagingY;
+
+      if (goesToLeftSide) {
+        // Arrange in left staging area
+        const stagingCol = leftSideCounter % stagingCols;
+        const stagingRow = Math.floor(leftSideCounter / stagingCols);
+
+        stagingX = CANVAS_PADDING + stagingCol * stagingPieceWidth + (leftStagingWidth - stagingCols * stagingPieceWidth) / 2;
+        stagingY = CANVAS_PADDING + stagingRow * stagingPieceHeight + (stagingHeight - stagingRows * stagingPieceHeight) / 2;
+
+        leftSideCounter++;
+      } else {
+        // Arrange in right staging area
+        const stagingCol = rightSideCounter % stagingCols;
+        const stagingRow = Math.floor(rightSideCounter / stagingCols);
+
+        stagingX = rightStagingStartX + stagingCol * stagingPieceWidth + (rightStagingWidth - stagingCols * stagingPieceWidth) / 2;
+        stagingY = CANVAS_PADDING + stagingRow * stagingPieceHeight + (stagingHeight - stagingRows * stagingPieceHeight) / 2;
+
+        rightSideCounter++;
+      }
+
+      // Assign the calculated position to the piece
+      piece.x = stagingX;
+      piece.y = stagingY;
+    });
 
     setPieces(newPieces);
     setConnectedPieces(new Set());
@@ -388,8 +438,13 @@ const PuzzleGame = ({ image, config, onReset }) => {
       const availableWidth = Math.min(window.innerWidth - 200, 1200);
       const availableHeight = window.innerHeight - 300;
 
+      // Calculate puzzle area width for minimum canvas size
+      const totalPuzzleWidth = config.cols * pieces[0].width;
+      const minRequiredWidth = totalPuzzleWidth + 400; // Extra space for staging areas
+      const actualCanvasWidth = Math.max(availableWidth, Math.min(minRequiredWidth, 1400));
+
       // Only update canvas size, keep pieces in their current positions
-      canvas.width = availableWidth;
+      canvas.width = actualCanvasWidth;
       canvas.height = Math.max(availableHeight, canvas.height);
 
       // Redraw with current piece positions
@@ -398,7 +453,7 @@ const PuzzleGame = ({ image, config, onReset }) => {
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [pieces, drawPuzzle]);
+  }, [pieces, drawPuzzle, config.cols]);
 
   return (
     <div className="puzzle-game">
