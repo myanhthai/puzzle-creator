@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash(git commit*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Checking if documentation needs updates...'; if git diff --cached --name-only | grep -E '\\.(js|jsx|ts|tsx|json|md)$' > /dev/null; then echo '📝 Code changes detected - updating documentation...'; claude /update-docs --no-session-persistence 2>/dev/null || echo '📋 Run /update-docs to refresh documentation'; fi",
+            "statusMessage": "Updating documentation..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // .tool_response.filePath' | { read -r f; if echo \"$f\" | grep -E '\\.(js|jsx|ts|tsx)$' > /dev/null; then echo \"📝 Code file updated: $(basename \"$f\")\"; fi; }",
+            "statusMessage": "Tracking code changes..."
+          }
+        ]
+      }
+    ]
+  }
+}
