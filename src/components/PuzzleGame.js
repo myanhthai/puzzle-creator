@@ -88,7 +88,7 @@ const PuzzleGame = ({ image, config, onReset }) => {
     setPieces(newPieces);
     setConnectedPieces(new Set());
     setGameCompleted(false);
-  }, [config, image]);
+  }, [config]);
 
   // Draw puzzle pieces on canvas
   const drawPuzzle = useCallback(() => {
@@ -228,36 +228,23 @@ const PuzzleGame = ({ image, config, onReset }) => {
       const currentDraggedPiece = prevPieces.find(p => p.id === dragInfoRef.current.draggedPieceId);
       if (!currentDraggedPiece) return prevPieces;
 
-      // Find connected pieces
-      const connectedIds = new Set([currentDraggedPiece.id]);
-      const toCheck = [currentDraggedPiece];
-
-      while (toCheck.length > 0) {
-        const current = toCheck.pop();
-        const adjacentIds = [
-          current.row > 0 ? (current.row - 1) * config.cols + current.col : -1,
-          current.row < config.rows - 1 ? (current.row + 1) * config.cols + current.col : -1,
-          current.col > 0 ? current.row * config.cols + (current.col - 1) : -1,
-          current.col < config.cols - 1 ? current.row * config.cols + (current.col + 1) : -1
-        ].filter(id => id !== -1);
-
-        adjacentIds.forEach(id => {
-          if (!connectedIds.has(id) && connectedPieces.has(id)) {
-            connectedIds.add(id);
-            const adjacentPiece = prevPieces.find(p => p.id === id);
-            if (adjacentPiece) {
-              toCheck.push(adjacentPiece);
-            }
-          }
-        });
-      }
-
-      // Calculate the movement delta from the dragged piece's current position
+      // Calculate movement delta
       const deltaX = newX - currentDraggedPiece.x;
       const deltaY = newY - currentDraggedPiece.y;
 
+      // Find all pieces that should move together
+      const piecesToMove = new Set([currentDraggedPiece.id]);
+
+      // Add connected pieces that are not placed (placed pieces don't move)
+      connectedPieces.forEach(id => {
+        const piece = prevPieces.find(p => p.id === id);
+        if (piece && !piece.placed) {
+          piecesToMove.add(id);
+        }
+      });
+
       return prevPieces.map(piece => {
-        if (connectedIds.has(piece.id)) {
+        if (piecesToMove.has(piece.id)) {
           return {
             ...piece,
             x: piece.x + deltaX,
@@ -267,56 +254,40 @@ const PuzzleGame = ({ image, config, onReset }) => {
         return piece;
       });
     });
-  }, [dragOffset, draggedPiece, config.cols, config.rows, connectedPieces]);
+  }, [dragOffset, draggedPiece, connectedPieces]);
 
   const handleMouseUp = useCallback(() => {
     if (!dragInfoRef.current.isDragging || !draggedPiece) return;
 
-    setPieces(prevPieces => {
-      const currentDraggedPiece = prevPieces.find(p => p.id === dragInfoRef.current.draggedPieceId);
-      if (!currentDraggedPiece) return prevPieces;
+    const currentDraggedPiece = pieces.find(p => p.id === dragInfoRef.current.draggedPieceId);
+    if (!currentDraggedPiece) return;
 
-      // Check if piece should snap to place
-      const distance = Math.sqrt(
-        Math.pow(currentDraggedPiece.x - currentDraggedPiece.correctX, 2) +
-        Math.pow(currentDraggedPiece.y - currentDraggedPiece.correctY, 2)
-      );
+    // Check if piece should snap to place
+    const distance = Math.sqrt(
+      Math.pow(currentDraggedPiece.x - currentDraggedPiece.correctX, 2) +
+      Math.pow(currentDraggedPiece.y - currentDraggedPiece.correctY, 2)
+    );
 
-      if (distance < PIECE_SNAP_DISTANCE) {
-        // Find connected pieces for snapping
-        const connectedIds = new Set([currentDraggedPiece.id]);
-        const toCheck = [currentDraggedPiece];
+    if (distance < PIECE_SNAP_DISTANCE) {
+      // Piece is close enough to snap - find all pieces that move with it
+      const connectedIds = new Set([currentDraggedPiece.id]);
 
-        while (toCheck.length > 0) {
-          const current = toCheck.pop();
-          const adjacentIds = [
-            current.row > 0 ? (current.row - 1) * config.cols + current.col : -1,
-            current.row < config.rows - 1 ? (current.row + 1) * config.cols + current.col : -1,
-            current.col > 0 ? current.row * config.cols + (current.col - 1) : -1,
-            current.col < config.cols - 1 ? current.row * config.cols + (current.col + 1) : -1
-          ].filter(id => id !== -1);
-
-          adjacentIds.forEach(id => {
-            if (!connectedIds.has(id) && connectedPieces.has(id)) {
-              connectedIds.add(id);
-              const adjacentPiece = prevPieces.find(p => p.id === id);
-              if (adjacentPiece) {
-                toCheck.push(adjacentPiece);
-              }
-            }
-          });
+      // Add any pieces that are already connected and moving together
+      pieces.forEach(piece => {
+        if (connectedPieces.has(piece.id) && !piece.placed) {
+          // Check if this piece is moving with the dragged piece
+          const expectedX = piece.correctX + (currentDraggedPiece.x - currentDraggedPiece.correctX);
+          const expectedY = piece.correctY + (currentDraggedPiece.y - currentDraggedPiece.correctY);
+          const dist = Math.sqrt(Math.pow(piece.x - expectedX, 2) + Math.pow(piece.y - expectedY, 2));
+          if (dist < 30) {
+            connectedIds.add(piece.id);
+          }
         }
+      });
 
-        // Add to connected pieces
-        setConnectedPieces(prev => new Set([...prev, ...connectedIds]));
-
-        // Check for completion
-        const newConnectedCount = connectedPieces.size + connectedIds.size;
-        if (newConnectedCount >= config.pieceCount) {
-          setTimeout(() => setGameCompleted(true), 500);
-        }
-
-        return prevPieces.map(piece => {
+      // Snap all these pieces to their correct positions
+      setPieces(prevPieces =>
+        prevPieces.map(piece => {
           if (connectedIds.has(piece.id)) {
             return {
               ...piece,
@@ -326,15 +297,54 @@ const PuzzleGame = ({ image, config, onReset }) => {
             };
           }
           return piece;
-        });
-      }
+        })
+      );
 
-      return prevPieces;
-    });
+      // Find all connected components after placing these pieces
+      const findAllConnected = (placedPieceIds) => {
+        const allConnected = new Set(placedPieceIds);
+        const toCheck = [...placedPieceIds];
+
+        while (toCheck.length > 0) {
+          const currentId = toCheck.pop();
+          const currentPiece = pieces.find(p => p.id === currentId);
+          if (!currentPiece) continue;
+
+          // Check all adjacent positions
+          const adjacentIds = [
+            currentPiece.row > 0 ? (currentPiece.row - 1) * config.cols + currentPiece.col : -1, // up
+            currentPiece.row < config.rows - 1 ? (currentPiece.row + 1) * config.cols + currentPiece.col : -1, // down
+            currentPiece.col > 0 ? currentPiece.row * config.cols + (currentPiece.col - 1) : -1, // left
+            currentPiece.col < config.cols - 1 ? currentPiece.row * config.cols + (currentPiece.col + 1) : -1 // right
+          ].filter(id => id !== -1);
+
+          adjacentIds.forEach(id => {
+            if (!allConnected.has(id)) {
+              const adjacentPiece = pieces.find(p => p.id === id);
+              if (adjacentPiece && (adjacentPiece.placed || connectedPieces.has(id))) {
+                allConnected.add(id);
+                toCheck.push(id);
+              }
+            }
+          });
+        }
+
+        return allConnected;
+      };
+
+      // Update connected pieces with all newly connected pieces
+      const newConnectedPieces = findAllConnected([...connectedIds, ...connectedPieces]);
+      setConnectedPieces(newConnectedPieces);
+
+      // Check for completion
+      if (newConnectedPieces.size >= config.pieceCount) {
+        setTimeout(() => setGameCompleted(true), 500);
+      }
+    }
 
     dragInfoRef.current = { isDragging: false, draggedPieceId: null, startPos: { x: 0, y: 0 } };
     setDraggedPiece(null);
-  }, [draggedPiece, config.cols, config.rows, connectedPieces, config.pieceCount]);
+  }, [draggedPiece, pieces, connectedPieces, config.cols, config.rows, config.pieceCount]);
 
   // Initialize when component mounts or config changes
   useEffect(() => {
